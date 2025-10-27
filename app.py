@@ -12,6 +12,49 @@ st.set_page_config(
     layout="wide"
 )
 
+# Add custom CSS for consistent dark theme
+st.markdown("""
+    <style>
+    /* Overall page styling */
+    .stApp {
+        background-color: #0E1117;
+    }
+    
+    /* Make text white by default */
+    .stMarkdown {
+        color: white !important;
+    }
+    
+    /* Style for dividers */
+    .stDivider {
+        border-color: #333;
+    }
+    
+    /* Button styling */
+    .stButton > button {
+        background-color: #4A4E5A;
+        color: white;
+        border: 1px solid #666;
+    }
+    .stButton > button:hover {
+        background-color: #5A5E6A;
+        border: 1px solid #888;
+    }
+    
+    /* Input field styling */
+    .stTextInput > div > div > input {
+        color: white;
+        background-color: #262730;
+    }
+    
+    /* Success/info message styling */
+    .stSuccess, .stInfo {
+        background-color: #3E404C;
+        color: white;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 @st.cache_resource
 def load_recommender():
     """Load and initialize the recommender system."""
@@ -96,24 +139,58 @@ def main():
                 
                 for i, restaurant in enumerate(recommendations, 1):
                     with st.container():
-                        st.write(f"### {i}. {restaurant['name']} {'⭐' * int(round(restaurant['rating']))}")
+                        # Restaurant name and stars
+                        st.markdown(f"## {i}. {restaurant['name']} {'⭐' * int(round(restaurant['rating']))}")
                         
-                        # Create three columns for restaurant details
-                        info_col1, info_col2 = st.columns([1, 2])
+                        # Summary in a colored box
+                        if 'summary' in restaurant:
+                            st.markdown(
+                                f"""
+                                <div style='background-color: #3E404C; color: white; padding: 15px; 
+                                    border-radius: 5px; border-left: 4px solid #FFD700; margin: 10px 0;'>
+                                    {restaurant['summary']}
+                                </div>
+                                """, 
+                                unsafe_allow_html=True
+                            )
                         
-                        with info_col1:
-                            st.write(f"**Location:** {restaurant['city']}")
-                            st.write(f"**Cuisine:** {restaurant['cuisine']}")
-                            st.write(f"**Rating:** {restaurant['rating']:.1f}/5.0")
+                        # Details in columns
+                        col1, col2 = st.columns([1, 2])
                         
-                        with info_col2:
-                            if restaurant['description']:
-                                st.write("**About this place:**")
-                                st.info(restaurant['description'])
+                        with col1:
+                            st.markdown(
+                                f"""
+                                <div style='color: white;'>
+                                    <p><span style='color: #FFD700; font-weight: bold;'>Location:</span> {restaurant['city']}</p>
+                                    <p><span style='color: #FFD700; font-weight: bold;'>Cuisine:</span> {restaurant['cuisine']}</p>
+                                    <p><span style='color: #FFD700; font-weight: bold;'>Rating:</span> {restaurant['rating']:.1f}/5.0</p>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
                         
-                        # Add a "Make Reservation" button (placeholder functionality)
-                        if st.button(f"🪑 Make Reservation at {restaurant['name']}", key=f"reserve_{i}"):
-                            st.write("🎉 This is a demo! In a real app, this would connect to a reservation system.")
+                        with col2:
+                            if restaurant.get('description'):
+                                st.markdown(
+                                    f"""
+                                    <div style='color: white;'>
+                                        <p><span style='color: #FFD700; font-weight: bold;'>Additional Details:</span></p>
+                                        <p>{restaurant['description']}</p>
+                                    </div>
+                                    """,
+                                    unsafe_allow_html=True
+                                )
+                        
+                        # Single reservation button with unique key
+                        button_key = f"reserve_{restaurant.get('id', '')}_{i}"
+                        col1, col2, col3 = st.columns([1, 2, 1])
+                        with col2:
+                            if st.button(
+                                f"🪑 Make Reservation at {restaurant['name']}", 
+                                key=button_key,
+                                use_container_width=True
+                            ):
+                                st.write("🎉 This is a demo! In a real app, this would connect to a reservation system.")
                         
                         st.divider()
             else:
