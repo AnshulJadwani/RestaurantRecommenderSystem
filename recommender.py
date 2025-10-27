@@ -1,0 +1,175 @@
+import pandas as pd
+import numpy as np
+from typing import List, Dict, Any, Optional
+import faiss
+from sklearn.metrics.pairwise import cosine_similarity
+from embed import RestaurantEmbedder
+from preprocess import TextPreprocessor
+
+class RestaurantRecommender:
+    def __init__(self, data: pd.DataFrame, embedder: RestaurantEmbedder, 
+                 preprocessor: TextPreprocessor):
+        """Initialize the recommender system."""
+        self.data = data
+        self.embedder = embedder
+        self.preprocessor = preprocessor
+        self.embeddings = None
+        self.index = None
+        self.restaurant_ids = None
+
+    def load_or_create_embeddings(self, save_dir: str = 'models', force_create: bool = False) -> None:
+        """Load existing embeddings or create new ones."""
+        if not force_create:
+            # Try to load existing embeddings
+            embeddings, restaurant_ids, index = self.embedder.load_embeddings(save_dir)
+            if all(x is not None for x in [embeddings, restaurant_ids, index]):
+                self.embeddings = embeddings
+                self.restaurant_ids = restaurant_ids
+                self.index = index
+                return
+
+        # Create new embeddings if loading failed or force_create is True
+        print("Generating new embeddings...")
+        
+        # Combine text features for embedding
+        combined_texts = []
+        restaurant_ids = []
+        
+        for idx, row in self.data.iterrows():
+            combined_text = self.preprocessor.combine_features(
+                name=row.get('name', ''),
+                cuisine=row.get('cuisine', ''),
+                description=row.get('description', ''),
+                reviews=row.get('reviews', '')
+            )
+            combined_texts.append(combined_text)
+            restaurant_ids.append(idx)
+
+        # Generate embeddings
+        embeddings = self.embedder.generate_embeddings(combined_texts)
+        
+        # Build FAISS index
+        index = self.embedder.build_faiss_index(embeddings)
+        
+        # Save everything
+        self.embedder.save_embeddings(save_dir, embeddings, restaurant_ids)
+        
+        # Update instance variables
+        self.embeddings = embeddings
+        self.restaurant_ids = restaurant_ids
+        self.index = index
+
+    def recommend_restaurants(self, city: str, cuisine: str, top_k: int = 5) -> List[Dict[str, Any]]:
+        """Recommend restaurants based on city and cuisine."""
+        if self.embeddings is None or self.index is None:
+            raise ValueError("Embeddings not initialized. Call load_or_create_embeddings first.")
+
+        # Filter by city and cuisine (case-insensitive)
+        city_mask = self.data['city'].str.lower() == city.lower()
+        cuisine_mask = self.data['cuisine'].str.lower() == cuisine.lower()
+        filtered_restaurants = self.data[city_mask & cuisine_mask]
+        
+        # If no exact cuisine match, try finding similar cuisines in the specified city
+        if len(filtered_restaurants) < top_k:
+            # Get all restaurants in the city
+            city_restaurants = self.data[city_mask]
+            
+            if len(city_restaurants) == 0:
+                return []
+
+            # Create query embedding for the cuisine
+            query_text = f"Restaurant serving {cuisine} cuisine with {cuisine} dishes and {cuisine} flavors"
+            query_embedding = self.embedder.model.encode([query_text])[0]
+            
+            # Convert to correct format for FAISS
+            query_embedding = np.array([query_embedding]).astype('float32')
+            
+            # Get city restaurant indices
+            city_indices = city_restaurants.index.tolist()
+            
+            # If using FAISS
+            if isinstance(self.index, faiss.Index):
+                # Search in FAISS index for more restaurants than needed to ensure diversity
+                D, I = self.index.search(query_embedding, len(city_restaurants))
+                
+                # Filter results to only include restaurants in the specified city
+                filtered_results = [
+                    i for i in I[0] 
+                    if self.restaurant_ids[i] in city_indices
+                ]
+                
+                # Combine exact matches with similar restaurants
+                exact_match_indices = filtered_restaurants.index.tolist()
+                # Further filter similar results to ensure they match the requested cuisine
+                similar_indices = []
+                for i in filtered_results:
+                    rid = self.restaurant_ids[i]
+                    # Skip if it's already an exact match
+                    if rid in exact_match_indices:
+                        continue
+                    # Ensure cuisine matches (case-insensitive)
+                    try:
+                        r_cuisine = str(self.data.loc[rid, 'cuisine'])
+                    except Exception:
+                        r_cuisine = ''
+                    if r_cuisine.lower() == cuisine.lower():
+                        similar_indices.append(rid)
+                
+                # Combine exact matches with similar restaurants
+                recommended_indices = exact_match_indices + similar_indices[:top_k - len(exact_match_indices)]
+            else:
+                # Fallback to cosine similarity
+                city_embeddings = self.embeddings[city_indices]
+                similarities = cosine_similarity(query_embedding, city_embeddings)[0]
+                
+                # Get indices of most similar restaurants and filter by cuisine
+                similar_indices = []
+                for i in similarities.argsort()[::-1]:
+                    rid = city_indices[i]
+                    if rid in filtered_restaurants.index:
+                        continue
+                    try:
+                        r_cuisine = str(self.data.loc[rid, 'cuisine'])
+                    except Exception:
+                        r_cuisine = ''
+                    if r_cuisine.lower() == cuisine.lower():
+                        similar_indices.append(rid)
+                
+                # Combine exact matches with similar restaurants
+                recommended_indices = filtered_restaurants.index.tolist() + similar_indices[:top_k - len(filtered_restaurants)]
+        else:
+            # If we have enough exact matches, use those
+            recommended_indices = filtered_restaurants.index.tolist()[:top_k]
+
+        # Prepare recommendations
+        recommendations = []
+        for idx in recommended_indices:
+            restaurant = self.data.loc[idx]
+            recommendations.append({
+                'id': idx,
+                'name': restaurant.get('name', ''),
+                'cuisine': restaurant.get('cuisine', ''),
+                'city': restaurant.get('city', ''),
+                'rating': restaurant.get('rating', 0.0),
+                'description': restaurant.get('description', ''),
+            })
+
+        return recommendations
+
+if __name__ == "__main__":
+    # Test the recommender
+    from data_loader import DataLoader
+    
+    # Initialize components
+    loader = DataLoader("data/Dataset.csv")
+    data = loader.load_data()
+    embedder = RestaurantEmbedder()
+    preprocessor = TextPreprocessor()
+    
+    # Create recommender
+    recommender = RestaurantRecommender(data, embedder, preprocessor)
+    recommender.load_or_create_embeddings()
+    
+    # Test recommendations
+    recommendations = recommender.recommend_restaurants("New York", "Italian")
+    print("\nRecommendations:", recommendations)
