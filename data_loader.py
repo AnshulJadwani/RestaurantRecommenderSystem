@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import numpy as np
 from typing import Dict, Any
@@ -11,11 +12,23 @@ class DataLoader:
     def load_data(self) -> pd.DataFrame:
         """Load the dataset and perform initial cleaning."""
         try:
+            if not os.path.exists(self.file_path):
+                raise FileNotFoundError(f"Dataset not found at {self.file_path}")
+            
             self.data = pd.read_csv(self.file_path)
+            if self.data.empty:
+                raise ValueError("Dataset is empty")
+                
             return self.clean_data()
+        except FileNotFoundError as e:
+            print(f"Dataset not found: {str(e)}")
+            raise
+        except pd.errors.EmptyDataError:
+            print("The dataset file is empty")
+            raise
         except Exception as e:
             print(f"Error loading data: {str(e)}")
-            return pd.DataFrame()
+            raise
 
     def clean_data(self) -> pd.DataFrame:
         """Clean and preprocess the dataset."""

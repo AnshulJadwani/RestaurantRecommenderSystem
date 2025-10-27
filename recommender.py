@@ -5,6 +5,7 @@ import faiss
 from sklearn.metrics.pairwise import cosine_similarity
 from embed import RestaurantEmbedder
 from preprocess import TextPreprocessor
+from summarizer import RestaurantSummarizer
 
 class RestaurantRecommender:
     def __init__(self, data: pd.DataFrame, embedder: RestaurantEmbedder, 
@@ -13,6 +14,7 @@ class RestaurantRecommender:
         self.data = data
         self.embedder = embedder
         self.preprocessor = preprocessor
+        self.summarizer = RestaurantSummarizer()
         self.embeddings = None
         self.index = None
         self.restaurant_ids = None
@@ -145,14 +147,26 @@ class RestaurantRecommender:
         recommendations = []
         for idx in recommended_indices:
             restaurant = self.data.loc[idx]
-            recommendations.append({
+            # Create restaurant dict with all available fields
+            restaurant_dict = {
                 'id': idx,
                 'name': restaurant.get('name', ''),
                 'cuisine': restaurant.get('cuisine', ''),
                 'city': restaurant.get('city', ''),
+                'address': restaurant.get('address', ''),
+                'locality': restaurant.get('locality', ''),
                 'rating': restaurant.get('rating', 0.0),
                 'description': restaurant.get('description', ''),
-            })
+                'price_range': restaurant.get('price_range', 3),
+                'avg_cost': restaurant.get('average_cost_for_two', 0),
+                'currency': restaurant.get('currency', '₹'),
+                'votes': restaurant.get('votes', 0),
+                'has_table_booking': restaurant.get('has_table_booking', 'No'),
+                'has_online_delivery': restaurant.get('has_online_delivery', 'No')
+            }
+            # Generate summary using the summarizer
+            restaurant_dict['summary'] = self.summarizer.generate_summary(restaurant_dict)
+            recommendations.append(restaurant_dict)
 
         return recommendations
 
