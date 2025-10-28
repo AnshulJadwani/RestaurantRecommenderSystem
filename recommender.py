@@ -6,6 +6,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from embed import RestaurantEmbedder
 from preprocess import TextPreprocessor
 from summarizer import RestaurantSummarizer
+from nlp_simple_aspects import SimpleAspectAnalyzer
 
 class RestaurantRecommender:
     def __init__(self, data: pd.DataFrame, embedder: RestaurantEmbedder, 
@@ -15,6 +16,11 @@ class RestaurantRecommender:
         self.embedder = embedder
         self.preprocessor = preprocessor
         self.summarizer = RestaurantSummarizer()
+        # lightweight aspect analyzer (VADER-based)
+        try:
+            self.simple_aspect_analyzer = SimpleAspectAnalyzer()
+        except Exception:
+            self.simple_aspect_analyzer = None
         self.embeddings = None
         self.index = None
         self.restaurant_ids = None
@@ -191,6 +197,23 @@ class RestaurantRecommender:
             }
             # Generate summary using the summarizer
             restaurant_dict['summary'] = self.summarizer.generate_summary(restaurant_dict)
+            # Add lightweight pros/cons from reviews/description if available
+            review_text = restaurant.get('reviews', '') or restaurant.get('description', '')
+            if self.simple_aspect_analyzer and review_text:
+                try:
+                    ac = self.simple_aspect_analyzer.extract_pros_cons(str(review_text), top_n=5)
+                    restaurant_dict['pros'] = ac.get('pros', [])
+                    restaurant_dict['cons'] = ac.get('cons', [])
+                    restaurant_dict['aspect_sentiments'] = ac.get('aspect_sentiments', {})
+                except Exception:
+                    restaurant_dict['pros'] = []
+                    restaurant_dict['cons'] = []
+                    restaurant_dict['aspect_sentiments'] = {}
+            else:
+                restaurant_dict['pros'] = []
+                restaurant_dict['cons'] = []
+                restaurant_dict['aspect_sentiments'] = {}
+
             recommendations.append(restaurant_dict)
 
         return recommendations
