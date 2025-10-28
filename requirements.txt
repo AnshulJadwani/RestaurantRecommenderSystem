@@ -7,6 +7,3 @@ streamlit>=1.27.2
 nltk>=3.8.1
 python-dotenv>=1.0.0
 tqdm>=4.66.1
-transformers>=4.40.0
-torch>=2.2.0
-keybert>=0.7.0

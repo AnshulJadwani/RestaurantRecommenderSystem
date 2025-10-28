@@ -6,7 +6,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 from embed import RestaurantEmbedder
 from preprocess import TextPreprocessor
 from summarizer import RestaurantSummarizer
-from nlp_aspects import AspectSentimentAnalyzer
 
 class RestaurantRecommender:
     def __init__(self, data: pd.DataFrame, embedder: RestaurantEmbedder, 
@@ -16,12 +15,6 @@ class RestaurantRecommender:
         self.embedder = embedder
         self.preprocessor = preprocessor
         self.summarizer = RestaurantSummarizer()
-        # Aspect sentiment analyzer (lazy init)
-        try:
-            self.aspect_analyzer = AspectSentimentAnalyzer()
-        except Exception:
-            # If model packages are not installed or pipeline fails, fall back to None
-            self.aspect_analyzer = None
         self.embeddings = None
         self.index = None
         self.restaurant_ids = None
@@ -198,22 +191,6 @@ class RestaurantRecommender:
             }
             # Generate summary using the summarizer
             restaurant_dict['summary'] = self.summarizer.generate_summary(restaurant_dict)
-            # Generate pros / cons from reviews or description
-            review_text = restaurant.get('reviews', '') or restaurant.get('description', '')
-            if self.aspect_analyzer and review_text:
-                try:
-                    ac = self.aspect_analyzer.extract_pros_cons(str(review_text), top_n=6)
-                    restaurant_dict['pros'] = ac.get('pros', [])
-                    restaurant_dict['cons'] = ac.get('cons', [])
-                    restaurant_dict['aspect_sentiments'] = ac.get('aspect_sentiments', {})
-                except Exception:
-                    restaurant_dict['pros'] = []
-                    restaurant_dict['cons'] = []
-                    restaurant_dict['aspect_sentiments'] = {}
-            else:
-                restaurant_dict['pros'] = []
-                restaurant_dict['cons'] = []
-                restaurant_dict['aspect_sentiments'] = {}
             recommendations.append(restaurant_dict)
 
         return recommendations
