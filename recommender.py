@@ -143,6 +143,31 @@ class RestaurantRecommender:
             # If we have enough exact matches, use those
             recommended_indices = filtered_restaurants.index.tolist()[:top_k]
 
+        # Sort the recommended indices so the highest-rated (and most voted) restaurants come first
+        def _score(idx_val: int):
+            try:
+                rating_val = float(self.data.at[idx_val, 'rating']) if 'rating' in self.data.columns else 0.0
+            except Exception:
+                rating_val = 0.0
+            try:
+                votes_val = int(self.data.at[idx_val, 'votes']) if 'votes' in self.data.columns else 0
+            except Exception:
+                votes_val = 0
+            return (rating_val, votes_val)
+
+        # Remove duplicates while preserving order, then sort by score (rating, votes)
+        unique_indices = []
+        seen = set()
+        for i in recommended_indices:
+            if i not in seen:
+                seen.add(i)
+                unique_indices.append(i)
+
+        sorted_indices = sorted(unique_indices, key=lambda i: _score(i), reverse=True)
+
+        # Trim to requested top_k
+        recommended_indices = sorted_indices[:top_k]
+
         # Prepare recommendations
         recommendations = []
         for idx in recommended_indices:

@@ -26,8 +26,40 @@ class RestaurantSummarizer:
         }
         price_desc = price_map.get(price_range, "moderately priced")
         
+        def _currency_symbol(curr: str) -> str:
+            """Map common currency names to symbols or clean up dataset values."""
+            if not curr:
+                return ""
+            c = curr.lower()
+            if "rupee" in c or "rs." in c or "rs" in c:
+                return "₹"
+            if "pula" in c:
+                return "P"
+            if "dollar" in c or "usd" in c:
+                return "$"
+            if "euro" in c:
+                return "€"
+            if "pound" in c or "gbp" in c:
+                return "£"
+            # If the dataset already provides a short symbol in parentheses like "Botswana Pula(P)",
+            # try to extract the parenthetical content.
+            import re
+            m = re.search(r"\(([^)]+)\)", curr)
+            if m:
+                return m.group(1)
+            # Fallback to the raw currency string (cleaned)
+            return curr
+
+        symbol = _currency_symbol(str(currency))
         if avg_cost > 0:
-            return f"{price_desc} (average {currency} {avg_cost} for two)"
+            # Format cost with no decimals and thousand separators
+            try:
+                cost_str = f"{int(avg_cost):,}"
+            except Exception:
+                cost_str = str(avg_cost)
+            if symbol:
+                return f"{price_desc} (average {symbol} {cost_str} for two)"
+            return f"{price_desc} (average {cost_str} for two)"
         return price_desc
 
     def _get_rating_description(self, rating: float) -> str:
