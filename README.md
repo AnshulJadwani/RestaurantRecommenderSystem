@@ -11,8 +11,7 @@ A sophisticated restaurant recommendation system that uses NLP embeddings (Sente
 - Persistent storage of embeddings for quick startup
 - Robust text preprocessing and cleaning
 - Graceful handling of missing or inconsistent data
- - Aspect-based pros/cons extraction from reviews and descriptions (KeyBERT + sentiment)
- - Improved natural-language summaries with formatted currency symbols
+- Improved natural-language summaries with formatted currency symbols
 
 ## Project Structure
 
@@ -52,11 +51,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-If you plan to use the aspect-extraction and sentiment features (recommended for richer NLP demos), also install the heavier NLP packages:
 
-```bash
-pip install transformers torch keybert
-```
 
 4. Place your dataset:
 Place your `Dataset.csv` file in the `data/` directory.
@@ -111,13 +106,13 @@ streamlit run app.py
 - Implements the core recommendation logic
 - Manages city and cuisine filtering
 - Provides ranked recommendations
- - Integrates the summarizer and aspect sentiment analyzer to attach natural summaries and pros/cons to results
+
 
 ### app.py
 - Streamlit-based user interface
 - Interactive filters and results display
 - Cached loading for better performance
- - Displays generated summaries and aspect-based pros/cons under each restaurant card
+
 
 ## Performance Considerations
 
@@ -125,7 +120,7 @@ streamlit run app.py
 - FAISS index enables fast similarity search
 - Fallback to sklearn's cosine similarity if FAISS fails
 - Caching of heavy computations in the Streamlit app
- - Aspect extraction and sentiment use transformer models; enable them for demos but expect higher memory/latency. Consider running with smaller models or enabling them only when needed.
+
 
 ## Error Handling
 
@@ -135,10 +130,6 @@ The system includes robust error handling for:
 - Missing values in the dataset
 - Failed embedding generation
 - Search/recommendation failures
-
-Additional notes:
-- If transformers/KeyBERT are not installed, aspect extraction will fall back gracefully and the app will still return recommendations and rule-based summaries.
-- The summarizer maps common currency strings to symbols so summaries show properly formatted amounts (e.g., ₹ 250).
 
 ## Contributing
 
@@ -158,4 +149,3 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - FAISS for efficient similarity search
 - Streamlit for the user interface
 - NLTK for text preprocessing
- - KeyBERT and Hugging Face Transformers for aspect extraction and sentiment
