@@ -153,6 +153,26 @@ def main():
                                 """, 
                                 unsafe_allow_html=True
                             )
+                        # Show pros and cons below the summary
+                        if restaurant.get('pros') or restaurant.get('cons'):
+                            pros = restaurant.get('pros', [])
+                            cons = restaurant.get('cons', [])
+                            pro_md = """
+                            <div style='color: white; margin-top: 6px;'>
+                                <p><span style='color: #7CFC00; font-weight: bold;'>Pros:</span> {}</p>
+                            </div>
+                            """.format(
+                                ", ".join(pros) if pros else "None"
+                            )
+                            con_md = """
+                            <div style='color: white; margin-top: 6px;'>
+                                <p><span style='color: #FF6B6B; font-weight: bold;'>Cons:</span> {}</p>
+                            </div>
+                            """.format(
+                                ", ".join(cons) if cons else "None"
+                            )
+                            st.markdown(pro_md, unsafe_allow_html=True)
+                            st.markdown(con_md, unsafe_allow_html=True)
                         
                         # Details in columns
                         col1, col2 = st.columns([1, 2])
